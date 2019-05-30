@@ -13,4 +13,10 @@ contract('Lottery', ([coinbase, user1, user2]) => {
         assert.equal(value , 5);
         console.log(`owner : ${owner}`)
     });
+
+    it('pot test', async () => {
+        let pot = await lottery.getPot();
+        assert.equal(pot, 0);
+        console.log(`pot : ${pot}`);
+    });
 });
