@@ -20,6 +20,8 @@ contract Lottery {
 
     uint256 private pot;
 
+    event BET(uint256 answerBlocknumber, address betPerson, byte challenges)
+
     constructor() public {
         owner = msg.sender;
     }
@@ -30,6 +32,19 @@ contract Lottery {
 
     function getPot() public view returns (uint256 potValue) {
         return pot;
+    }
+
+    /**
+    @dev 배팅을 하고 , 이더 보내고, 해쉬값 보낸다.
+    @param challenges 유저입력해쉬 
+    @return 함수 수행여부에 따른 boolean
+     */
+    function bet(byte challenges) public payable returns (bool result) {
+        require(msg.value == BET_AMOUNT, 'not enough ETH');
+        require(pushBet(challenges), 'cant pushBet');
+        emit BET(tail-1, msg.sender, challenges);
+
+        return true;
     }
 
     function getBetInfo(uint256 index) public view returns (uint256 answerBlocknumber, address betPerson, byte challenges){
