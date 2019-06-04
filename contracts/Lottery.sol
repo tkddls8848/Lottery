@@ -20,6 +20,8 @@ contract Lottery {
 
     uint256 private pot;
 
+    enum BlockStatus (BEHIND_BLOCK_LIMIT, ON_THE_BLOCK, OVER_THE_BLOCK, UNKNOWN_STATUS);
+
     event BET(uint256 index, address betPerson,uint256 amount, uint256 answerBlockNumber, byte challenges);
 
     constructor() public {
@@ -47,6 +49,50 @@ contract Lottery {
         return true;
     }
 
+    /**distribute bet ETH by result */
+    function distribute() public {
+        uint256 flag;
+        BetInfo memory b;
+        BlockStatus currentStatus;
+
+        for(flag=head;flag<tail;flag++){
+            b = betInfoMap[flag];
+            currentStatus = getBlockStatus(b.answerBlockNumber);
+
+            if(currentStatus == BEHIND_BLOCK_LIMIT) {
+                //refund
+                //emit refund event
+            } else if(currentStatus == ON_THE_BLOCK) {
+                // win => get pot money
+
+                // lose => pay pot money
+
+                // draw => refund bet money
+
+            } else if(currentStatus == OVER_THE_BLOCK) {
+                break;
+            }
+
+            popBet(flag);
+        }
+    }
+
+    /**
+    BEHIND_BLOCK_LIMIT => refund
+    ON_THE_BLOCK => bet
+    OVER_THE_BLOCK_LIMIT=> cancel
+     */
+    function getBlockStatus(uint256 answerBlockNumber) public returns (BlockStatus){
+        if(answerBlockNumber < block.number - BLOCK_LIMIT) {
+            return BlockStatus.BEHIND_BLOCK_LIMIT;
+        } else if(answerBlockNumber >= block.number - BLOCK_LIMIT && answerBlockNumber < block.number) {
+            return BlockStatus.ON_THE_BLOCK;
+        } else if(answerBlockNumber >= block.number) {
+            return BlockStatus.OVER_THE_BLOCK_LIMIT;
+        }
+        return UNKNOWN_STATUS; // prevent unexpected error
+    }
+
     function getBetInfo(uint256 index) public view returns (uint256 answerBlockNumber, address betPerson, byte challenges) {
         BetInfo memory b = betInfoMap[index];
         answerBlockNumber = b.answerBlockNumber;
@@ -54,6 +100,7 @@ contract Lottery {
         challenges = b.challenges;
     }
 
+    // start bet queue
     function pushBet(byte challenges) internal returns (bool){
         BetInfo memory b;
 
@@ -67,6 +114,7 @@ contract Lottery {
         return true;
     }
 
+    // end bet queue
     function popBet(uint256 index) public returns (bool){
         delete betInfoMap[index];
         
