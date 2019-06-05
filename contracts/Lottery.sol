@@ -20,7 +20,8 @@ contract Lottery {
 
     uint256 private pot;
 
-    enum BlockStatus (BEHIND_BLOCK_LIMIT, ON_THE_BLOCK, OVER_THE_BLOCK, UNKNOWN_STATUS);
+    enum BlockStatus {BEHIND_BLOCK_LIMIT, ON_THE_BLOCK, OVER_THE_BLOCK, UNKNOWN_STATUS};
+    enum BettingResult {WIN, LOSE, DRAW};
 
     event BET(uint256 index, address betPerson,uint256 amount, uint256 answerBlockNumber, byte challenges);
 
@@ -75,6 +76,35 @@ contract Lottery {
 
             popBet(flag);
         }
+    }
+
+    /** check between challenge and hashnumber*/
+    function isMatch(byte challenges, bytes32 answer) public returns (BettingResult) {
+
+        byte c1 = challenges;
+        byte c2 = challenges;
+
+        c1 = c1 >> 4;    //0x0a
+        c1 = c1 << 4;    //0xa0    
+
+        c2 = c2 << 4;    //0xb0
+        c2 = c2 >> 4;    //0x0b  
+
+        byte a1 = answer[0];
+        byte a2 = answer[0];    
+
+        a1 = a1 >> 4;
+        a1 = a1 << 4;  
+
+        a2 = a2 << 4;
+        a2 = a2 >> 4;      
+
+        if(a1 == c1 && a2 == c2) {
+            return BettingResult.WIN;
+        } else if(a1 == c1 || a2 == c2) {
+            return BettingResult.DRAW;
+        }
+        return BettingResult.LOSE;
     }
 
     /**
