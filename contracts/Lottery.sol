@@ -20,8 +20,8 @@ contract Lottery {
 
     uint256 private pot;
 
-    enum BlockStatus {BEHIND_BLOCK_LIMIT, ON_THE_BLOCK, OVER_THE_BLOCK, UNKNOWN_STATUS};
-    enum BettingResult {WIN, LOSE, DRAW};
+    enum BlockStatus {BEHIND_BLOCK_LIMIT, ON_THE_BLOCK, OVER_THE_BLOCK, UNKNOWN_STATUS}
+    enum BettingResult {WIN, LOSE, DRAW}
 
     event BET(uint256 index, address betPerson,uint256 amount, uint256 answerBlockNumber, byte challenges);
 
@@ -60,17 +60,17 @@ contract Lottery {
             b = betInfoMap[flag];
             currentStatus = getBlockStatus(b.answerBlockNumber);
 
-            if(currentStatus == BEHIND_BLOCK_LIMIT) {
+            if(currentStatus == BlockStatus.BEHIND_BLOCK_LIMIT) {
                 //refund
                 //emit refund event
-            } else if(currentStatus == ON_THE_BLOCK) {
+            } else if(currentStatus == BlockStatus.ON_THE_BLOCK) {
                 // win => get pot money
 
                 // lose => pay pot money
 
                 // draw => refund bet money
 
-            } else if(currentStatus == OVER_THE_BLOCK) {
+            } else if(currentStatus == BlockStatus.OVER_THE_BLOCK) {
                 break;
             }
 
@@ -79,7 +79,7 @@ contract Lottery {
     }
 
     /** check between challenge and hashnumber*/
-    function isMatch(byte challenges, bytes32 answer) public returns (BettingResult) {
+    function isMatch(byte challenges, bytes32 answer) public pure returns (BettingResult) {
 
         byte c1 = challenges;
         byte c2 = challenges;
@@ -110,17 +110,17 @@ contract Lottery {
     /**
     BEHIND_BLOCK_LIMIT => refund
     ON_THE_BLOCK => bet
-    OVER_THE_BLOCK_LIMIT=> cancel
+    OVER_THE_BLOCK=> cancel
      */
-    function getBlockStatus(uint256 answerBlockNumber) public returns (BlockStatus){
+    function getBlockStatus(uint256 answerBlockNumber) public view returns (BlockStatus){
         if(answerBlockNumber < block.number - BLOCK_LIMIT) {
             return BlockStatus.BEHIND_BLOCK_LIMIT;
         } else if(answerBlockNumber >= block.number - BLOCK_LIMIT && answerBlockNumber < block.number) {
             return BlockStatus.ON_THE_BLOCK;
         } else if(answerBlockNumber >= block.number) {
-            return BlockStatus.OVER_THE_BLOCK_LIMIT;
+            return BlockStatus.OVER_THE_BLOCK;
         }
-        return UNKNOWN_STATUS; // prevent unexpected error
+        return BlockStatus.UNKNOWN_STATUS; // prevent unexpected error
     }
 
     function getBetInfo(uint256 index) public view returns (uint256 answerBlockNumber, address betPerson, byte challenges) {
