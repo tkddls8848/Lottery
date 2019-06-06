@@ -32,7 +32,7 @@ contract('Lottery', ([coinbase, user1, user2]) => {
             await assertRevert(lottery.bet('0xab', {from : user1, value:4000000000000000}));
         })
         //success transaction
-        it.only('success transaction', async () => {
+        it('success transaction', async () => {
             let reciept = await lottery.bet('0xab', {from : user1, value:5000000000000000});
 
             let potMoney = await lottery.getPot();
@@ -48,5 +48,24 @@ contract('Lottery', ([coinbase, user1, user2]) => {
             
             await expectEvent.inLogs(reciept.logs, 'BET')
         })
+    })
+
+    describe.only('isMatch', () => {
+        let answer = '0xf3048ff1242af31bedd9f462ebd14d49f43423ee9342b278cdd847cc78fdf0a9';
+        it('get win when 2 character matches', async () => {
+            let result = await lottery.isMatch('0xf3', answer);
+            assert.equal(result, 0);
+        });
+        it('get draw when 1 character matches', async () => {
+            let result = await lottery.isMatch('0x03', answer);
+            assert.equal(result, 2);
+            
+            result = await lottery.isMatch('0xf0', answer);
+            assert.equal(result, 2);
+        });
+        it('get lose when no character matches', async () => {
+            let result = await lottery.isMatch('0x12', answer);
+            assert.equal(result, 1);
+        });
     })
 });
