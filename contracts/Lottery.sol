@@ -78,6 +78,12 @@ contract Lottery {
         }
     }
 
+    function betAndDistribute(byte chall) public payable returns (bool){
+        bet(chall);
+        distribute();
+        return true;
+    }
+
     /** check between challenge and hashnumber*/
     function isMatch(byte challenges, bytes32 answer) public pure returns (BettingResult) {
 
