@@ -13,6 +13,8 @@ contract Lottery {
     mapping(uint256=>BetInfo) private betInfoMap;
 
     address public owner;
+    bool private mode; // false : test mode, true : real use
+    bytes32 public answerForTest;
 
     uint256 constant internal BET_AMOUNT = 5 * 10 ** 15;
     uint256 constant internal BLOCK_INTERVAL = 3;
@@ -23,14 +25,10 @@ contract Lottery {
     enum BlockStatus {BEHIND_BLOCK_LIMIT, ON_THE_BLOCK, OVER_THE_BLOCK, UNKNOWN_STATUS}
     enum BettingResult {WIN, LOSE, DRAW}
 
-    event BET(uint256 index, address betPerson,uint256 amount, uint256 answerBlockNumber, byte challenges);
+    event BET(uint256 index, address betPerson, uint256 amount, uint256 answerBlockNumber, byte challenges);
 
     constructor() public {
         owner = msg.sender;
-    }
-
-    function getValue() public pure returns (uint256 value){
-        return 5;
     }
 
     function getPot() public view returns (uint256 potValue) {
@@ -38,9 +36,10 @@ contract Lottery {
     }
 
     /**
-    @dev 배팅을 하고 , 이더 보내고, 해쉬값 보낸다.
-    @param challenges 유저입력해쉬 
-    @return 함수 수행여부에 따른 boolean
+     * @dev 베팅을 한다. 유저는 0.005 ETH를 보내야 하고, 베팅용 1 byte 글자를 보낸다.
+     * 큐에 저장된 베팅 정보는 이후 distribute 함수에서 해결된다.
+     * @param challenges 유저가 베팅하는 글자
+     * @return 함수가 잘 수행되었는지 확인해는 bool 값
      */
     function bet(byte challenges) public payable returns (bool result) {
         require(msg.value == BET_AMOUNT, 'not enough ETH');
@@ -55,6 +54,7 @@ contract Lottery {
         uint256 flag;
         BetInfo memory b;
         BlockStatus currentStatus;
+        BettingResult currentBettingResult;
 
         for(flag=head;flag<tail;flag++){
             b = betInfoMap[flag];
@@ -64,11 +64,21 @@ contract Lottery {
                 //refund
                 //emit refund event
             } else if(currentStatus == BlockStatus.ON_THE_BLOCK) {
-                // win => get pot money
-
-                // lose => pay pot money
-
-                // draw => refund bet money
+                currentBettingResult = isMatch(b.challenges, getAnswerBlockHash(b.answerBlockNumber));
+                
+                if (currentBettingResult == BettingResult.WIN) {
+                    // transfer pot to better
+                    //  pot = 0
+                    // emit Win event
+                } else if (currentBettingResult == BettingResult.LOSE) {
+                    // transfer BET_AMOUNT to pot
+                    // pot += BET_AMOUNT
+                    //emit LOSE event
+                } else if (currentBettingResult == BettingResult.DRAW) {
+                    // transfer only BET_AMOUNT to better
+                    // emit DRAW event
+                    //
+                }
 
             } else if(currentStatus == BlockStatus.OVER_THE_BLOCK) {
                 break;
@@ -78,8 +88,19 @@ contract Lottery {
         }
     }
 
-    function betAndDistribute(byte chall) public payable returns (bool){
-        bet(chall);
+    function setAnswerForTest(bytes32 answer) public returns(bool result){
+        require(msg.sender == owner, "Only for owner");
+        this.answerForTest = answer;
+        return true;
+    }
+
+    //hash값은 random하기에 테스트를 위해서 임의의 해시값을 이용하여 테스트하는 모드를 구현.
+    function getAnswerBlockHash(bytes32 answerBlockHash) public returns (bool result) {
+        return mode ? blockhash(answerBlockHash) : answerForTest;
+    }
+
+    function betAndDistribute(byte challenges) public payable returns (bool result){
+        bet(challenges);
         distribute();
         return true;
     }
