@@ -12,7 +12,7 @@ contract Lottery {
     uint256 private tail;
     mapping(uint256=>BetInfo) private betInfoMap;
 
-    address public owner;
+    address public payable owner;
     bool private mode; // false : test mode, true : real use
     bytes32 public answerForTest;
 
@@ -25,7 +25,11 @@ contract Lottery {
     enum BlockStatus {BEHIND_BLOCK_LIMIT, ON_THE_BLOCK, OVER_THE_BLOCK, UNKNOWN_STATUS}
     enum BettingResult {WIN, LOSE, DRAW}
 
-    event BET(uint256 index, address betPerson, uint256 amount, uint256 answerBlockNumber, byte challenges);
+    event BET(uint256 index, address betPerson, uint256 amount, byte challenges, uint256 answerBlockNumber);
+    event WIN(uint256 index, address betPerson, uint256 amount, byte challenges, byte answer, uint256 answerBlockNumber);
+    event LOSE(uint256 index, address betPerson, uint256 amount, byte challenges, byte answer, uint256 answerBlockNumber);
+    event DRAW(uint256 index, address betPerson, uint256 amount, byte challenges, byte answer, uint256 answerBlockNumber);
+    event REFUND(uint256 index, address betPerson, uint256 amount, byte challenges, uint256 answerBlockNumber);
 
     constructor() public {
         owner = msg.sender;
@@ -33,6 +37,11 @@ contract Lottery {
 
     function getPot() public view returns (uint256 potValue) {
         return pot;
+    }
+
+    function setPot(uint set) public returns (bool) {
+        this.pot = set;
+        return true;
     }
 
     /**
@@ -44,49 +53,78 @@ contract Lottery {
     function bet(byte challenges) public payable returns (bool result) {
         require(msg.value == BET_AMOUNT, 'not enough ETH');
         require(pushBet(challenges), 'cant pushBet');
-        emit BET(tail-1, msg.sender,msg.value, block.number+BLOCK_INTERVAL, challenges);
+        emit BET(tail-1, msg.sender, msg.value, challenges, block.number+BLOCK_INTERVAL);
 
         return true;
     }
 
     /**distribute bet ETH by result */
     function distribute() public {
+
         uint256 flag;
+        uint256 transferAmount;
+
         BetInfo memory b;
         BlockStatus currentStatus;
         BettingResult currentBettingResult;
 
         for(flag=head;flag<tail;flag++){
+
             b = betInfoMap[flag];
             currentStatus = getBlockStatus(b.answerBlockNumber);
+            bytes32 answerBlockHash = getAnswerBlockHash(b.answerBlockNumber);
 
             if(currentStatus == BlockStatus.BEHIND_BLOCK_LIMIT) {
-                //refund
-                //emit refund event
-            } else if(currentStatus == BlockStatus.ON_THE_BLOCK) {
-                currentBettingResult = isMatch(b.challenges, getAnswerBlockHash(b.answerBlockNumber));
-                
-                if (currentBettingResult == BettingResult.WIN) {
-                    // transfer pot to better
-                    //  pot = 0
-                    // emit Win event
-                } else if (currentBettingResult == BettingResult.LOSE) {
-                    // transfer BET_AMOUNT to pot
-                    // pot += BET_AMOUNT
-                    //emit LOSE event
-                } else if (currentBettingResult == BettingResult.DRAW) {
-                    // transfer only BET_AMOUNT to better
-                    // emit DRAW event
-                    //
-                }
+
+                //refund BET_AMOUNT
+                transferAmount = transferWithoutFee(b.betPerson, BET_AMOUNT);
+                emit REFUND(flag, b.betPerson, transferAmount, b.challenges, b.answerBlockNumber);
 
             } else if(currentStatus == BlockStatus.OVER_THE_BLOCK) {
-                break;
-            }
 
+                break;
+
+            } else if(currentStatus == BlockStatus.ON_THE_BLOCK) {
+
+                currentBettingResult = isMatch(b.challenges, answerBlockHash);
+                
+                if (currentBettingResult == BettingResult.WIN) {
+
+                    // transfer pot to better
+                    transferAmount = transferWithoutFee(b.betPerson, getPot() + BET_AMOUNT);
+                    //  pot = 0
+                    setPot(0);
+                    // emit Win event
+                    emit WIN(flag, b.betPerson, transferAmount, b.challenges, answerBlockHash[0], b.answerBlockNumber);
+
+                } else if (currentBettingResult == BettingResult.LOSE) {
+
+                    // pot += BET_AMOUNT
+                    setPot(getPot() + BET_AMOUNT);
+                    //emit LOSE event
+                    emit LOSE(flag, b.betPerson, 0, b.challenges, answerBlockHash[0], b.answerBlockNumber);
+
+                } else if (currentBettingResult == BettingResult.DRAW) {
+
+                    // transfer only BET_AMOUNT to better
+                    transferAmount = transferWithoutFee(b.betPerson, BET_AMOUNT);
+                    // emit DRAW event
+                    emit DRAW(flag, b.betPerson, transferAmount, b.challenges, answerBlockHash[0], b.answerBlockNumber);
+
+                }
+            }
             popBet(flag);
         }
     }
+    /** take fee from transfer amount */
+    function transferWithoutFee(address addr,uint256 amount) public returns (uint256) {
+        uint256 fee = amount / 100;
+        uint256 trueTransfer = amount - fee;
+
+        addr.transfer(trueTransfer);
+        owner.transfer(fee);
+        return trueTransfer;
+    } 
 
     function setAnswerForTest(bytes32 answer) public returns(bool result){
         require(msg.sender == owner, "Only for owner");
