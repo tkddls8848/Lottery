@@ -12,7 +12,7 @@ contract Lottery {
     uint256 private tail;
     mapping(uint256=>BetInfo) private betInfoMap;
 
-    address public payable owner;
+    address public owner;
     bool private mode; // false : test mode, true : real use
     bytes32 public answerForTest;
 
@@ -37,11 +37,6 @@ contract Lottery {
 
     function getPot() public view returns (uint256 potValue) {
         return pot;
-    }
-
-    function setPot(uint set) public returns (bool) {
-        this.pot = set;
-        return true;
     }
 
     /**
@@ -93,14 +88,14 @@ contract Lottery {
                     // transfer pot to better
                     transferAmount = transferWithoutFee(b.betPerson, getPot() + BET_AMOUNT);
                     //  pot = 0
-                    setPot(0);
+                    pot = 0;
                     // emit Win event
                     emit WIN(flag, b.betPerson, transferAmount, b.challenges, answerBlockHash[0], b.answerBlockNumber);
 
                 } else if (currentBettingResult == BettingResult.LOSE) {
 
                     // pot += BET_AMOUNT
-                    setPot(getPot() + BET_AMOUNT);
+                    pot += BET_AMOUNT;
                     //emit LOSE event
                     emit LOSE(flag, b.betPerson, 0, b.challenges, answerBlockHash[0], b.answerBlockNumber);
 
@@ -115,25 +110,25 @@ contract Lottery {
             }
             popBet(flag);
         }
+        head = flag;
     }
     /** take fee from transfer amount */
-    function transferWithoutFee(address addr,uint256 amount) public returns (uint256) {
+    function transferWithoutFee(address payable addr, uint256 amount) internal returns (uint256) {
+        
         uint256 fee = amount / 100;
-        uint256 trueTransfer = amount - fee;
+        uint256 amountWithoutFee = amount - fee;
 
-        addr.transfer(trueTransfer);
-        owner.transfer(fee);
-        return trueTransfer;
-    } 
+        // transfer to addr
+        addr.transfer(amountWithoutFee);
 
-    function setAnswerForTest(bytes32 answer) public returns(bool result){
-        require(msg.sender == owner, "Only for owner");
-        this.answerForTest = answer;
-        return true;
+        // transfer to owner
+        msg.sender.transfer(fee);
+
+        return amountWithoutFee;
     }
 
     //hash값은 random하기에 테스트를 위해서 임의의 해시값을 이용하여 테스트하는 모드를 구현.
-    function getAnswerBlockHash(bytes32 answerBlockHash) public returns (bool result) {
+    function getAnswerBlockHash(uint256 answerBlockHash) internal view returns (bytes32 answer) {
         return mode ? blockhash(answerBlockHash) : answerForTest;
     }
 
