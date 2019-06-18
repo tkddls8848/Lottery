@@ -22,7 +22,7 @@ contract Lottery {
 
     uint256 private pot;
 
-    enum BlockStatus {BEHIND_BLOCK_LIMIT, ON_THE_BLOCK, OVER_THE_BLOCK, UNKNOWN_STATUS}
+    enum BlockStatus {PASSED_BLOCK, ON_THE_BLOCK, OVER_THE_BLOCK, UNKNOWN_STATUS}
     enum BettingResult {WIN, LOSE, DRAW}
 
     event BET(uint256 index, address betPerson, uint256 amount, byte challenges, uint256 answerBlockNumber);
@@ -69,7 +69,7 @@ contract Lottery {
             currentStatus = getBlockStatus(b.answerBlockNumber);
             bytes32 answerBlockHash = getAnswerBlockHash(b.answerBlockNumber);
 
-            if(currentStatus == BlockStatus.BEHIND_BLOCK_LIMIT) {
+            if(currentStatus == BlockStatus.PASSED_BLOCK) {
 
                 //refund BET_AMOUNT
                 transferAmount = transferWithoutFee(b.betPerson, BET_AMOUNT);
@@ -95,7 +95,7 @@ contract Lottery {
                 } else if (currentBettingResult == BettingResult.LOSE) {
 
                     // pot += BET_AMOUNT
-                    pot += BET_AMOUNT;
+                    pot = pot + BET_AMOUNT;
                     //emit LOSE event
                     emit LOSE(flag, b.betPerson, 0, b.challenges, answerBlockHash[0], b.answerBlockNumber);
 
@@ -112,6 +112,7 @@ contract Lottery {
         }
         head = flag;
     }
+
     /** take fee from transfer amount */
     function transferWithoutFee(address payable addr, uint256 amount) internal returns (uint256) {
         
@@ -125,6 +126,11 @@ contract Lottery {
         msg.sender.transfer(fee);
 
         return amountWithoutFee;
+    }
+
+    function setAnswerForTest(bytes32 setAnswer) public returns (bool result) {
+        answerForTest = setAnswer;
+        return true;
     }
 
     //hash값은 random하기에 테스트를 위해서 임의의 해시값을 이용하여 테스트하는 모드를 구현.
@@ -144,37 +150,42 @@ contract Lottery {
         byte c1 = challenges;
         byte c2 = challenges;
 
-        c1 = c1 >> 4;    //0x0a
-        c1 = c1 << 4;    //0xa0    
-
-        c2 = c2 << 4;    //0xb0
-        c2 = c2 >> 4;    //0x0b  
-
         byte a1 = answer[0];
-        byte a2 = answer[0];    
+        byte a2 = answer[0];
+
+        // Get first number
+        c1 = c1 >> 4; // 0xab -> 0x0a
+        c1 = c1 << 4; // 0x0a -> 0xa0
 
         a1 = a1 >> 4;
-        a1 = a1 << 4;  
+        a1 = a1 << 4;
+
+        // Get Second number
+        c2 = c2 << 4; // 0xab -> 0xb0
+        c2 = c2 >> 4; // 0xb0 -> 0x0b
 
         a2 = a2 << 4;
-        a2 = a2 >> 4;      
+        a2 = a2 >> 4;    
 
         if(a1 == c1 && a2 == c2) {
             return BettingResult.WIN;
-        } else if(a1 == c1 || a2 == c2) {
+        }
+        
+        if (a1 == c1 || a2 == c2) {
             return BettingResult.DRAW;
         }
+        
         return BettingResult.LOSE;
     }
 
     /**
-    BEHIND_BLOCK_LIMIT => refund
+    PASSED_BLOCK => refund
     ON_THE_BLOCK => bet
     OVER_THE_BLOCK=> cancel
      */
     function getBlockStatus(uint256 answerBlockNumber) public view returns (BlockStatus){
         if(answerBlockNumber < block.number - BLOCK_LIMIT) {
-            return BlockStatus.BEHIND_BLOCK_LIMIT;
+            return BlockStatus.PASSED_BLOCK;
         } else if(answerBlockNumber >= block.number - BLOCK_LIMIT && answerBlockNumber < block.number) {
             return BlockStatus.ON_THE_BLOCK;
         } else if(answerBlockNumber >= block.number) {
