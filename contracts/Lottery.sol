@@ -35,7 +35,7 @@ contract Lottery {
         owner = msg.sender;
     }
 
-    function getPot() public view returns (uint256 potValue) {
+    function getPot() public view returns (uint256 value    ) {
         return pot;
     }
 
@@ -67,7 +67,6 @@ contract Lottery {
 
             b = betInfoMap[flag];
             currentStatus = getBlockStatus(b.answerBlockNumber);
-            bytes32 answerBlockHash = getAnswerBlockHash(b.answerBlockNumber);
 
             if(currentStatus == BlockStatus.PASSED_BLOCK) {
 
@@ -75,18 +74,20 @@ contract Lottery {
                 transferAmount = transferWithoutFee(b.betPerson, BET_AMOUNT);
                 emit REFUND(flag, b.betPerson, transferAmount, b.challenges, b.answerBlockNumber);
 
-            } else if(currentStatus == BlockStatus.OVER_THE_BLOCK) {
+            }
+            if(currentStatus == BlockStatus.OVER_THE_BLOCK) {
 
                 break;
 
-            } else if(currentStatus == BlockStatus.ON_THE_BLOCK) {
-
+            }
+            if(currentStatus == BlockStatus.ON_THE_BLOCK) {
+                bytes32 answerBlockHash = getAnswerBlockHash(b.answerBlockNumber);
                 currentBettingResult = isMatch(b.challenges, answerBlockHash);
                 
                 if (currentBettingResult == BettingResult.WIN) {
 
                     // transfer pot to better
-                    transferAmount = transferWithoutFee(b.betPerson, getPot() + BET_AMOUNT);
+                    transferAmount = transferWithoutFee(b.betPerson, pot + BET_AMOUNT);
                     //  pot = 0
                     pot = 0;
                     // emit Win event
@@ -95,7 +96,7 @@ contract Lottery {
                 } else if (currentBettingResult == BettingResult.LOSE) {
 
                     // pot += BET_AMOUNT
-                    pot = pot + BET_AMOUNT;
+                    pot += BET_AMOUNT;
                     //emit LOSE event
                     emit LOSE(flag, b.betPerson, 0, b.challenges, answerBlockHash[0], b.answerBlockNumber);
 
@@ -116,7 +117,7 @@ contract Lottery {
     /** take fee from transfer amount */
     function transferWithoutFee(address payable addr, uint256 amount) internal returns (uint256) {
         
-        uint256 fee = amount / 100;
+        uint256 fee = 0;
         uint256 amountWithoutFee = amount - fee;
 
         // transfer to addr
