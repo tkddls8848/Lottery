@@ -22,7 +22,7 @@ contract Lottery {
 
     uint256 private pot;
 
-    enum BlockStatus {PASSED_BLOCK, ON_THE_BLOCK, OVER_THE_BLOCK, UNKNOWN_STATUS}
+    enum BlockStatus {PASSED_BLOCK, ON_THE_BLOCK, OVER_THE_BLOCK}
     enum BettingResult {WIN, LOSE, DRAW}
 
     event BET(uint256 index, address betPerson, uint256 amount, byte challenges, uint256 answerBlockNumber);
@@ -185,14 +185,19 @@ contract Lottery {
     OVER_THE_BLOCK=> cancel
      */
     function getBlockStatus(uint256 answerBlockNumber) public view returns (BlockStatus){
-        if(answerBlockNumber < block.number - BLOCK_LIMIT) {
-            return BlockStatus.PASSED_BLOCK;
-        } else if(answerBlockNumber >= block.number - BLOCK_LIMIT && answerBlockNumber < block.number) {
+        if(block.number > answerBlockNumber && block.number  <  BLOCK_LIMIT + answerBlockNumber) {
             return BlockStatus.ON_THE_BLOCK;
-        } else if(answerBlockNumber >= block.number) {
+        }
+
+        if(block.number <= answerBlockNumber) {
             return BlockStatus.OVER_THE_BLOCK;
         }
-        return BlockStatus.UNKNOWN_STATUS; // prevent unexpected error
+
+        if(block.number >= answerBlockNumber + BLOCK_LIMIT) {
+            return BlockStatus.PASSED_BLOCK;
+        }
+
+        return BlockStatus.PASSED_BLOCK;
     }
 
     function getBetInfo(uint256 index) public view returns (uint256 answerBlockNumber, address betPerson, byte challenges) {

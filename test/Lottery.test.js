@@ -125,6 +125,8 @@ contract('Lottery', ([deployer, user1, user2]) => {
                 assert.equal(new web3.utils.BN(user1Before).toString(), new web3.utils.BN(user1After).toString())
             }); 
         })
-
+        describe('BEHIND_BLOCK', async () => {
+            //ganache-cli evm_miner를 수행하여 블럭을 건너뛰는 것으로 테스트
+        })
     })
 });
